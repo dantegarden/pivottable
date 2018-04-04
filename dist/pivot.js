@@ -14,7 +14,16 @@
       return pivotModule(jQuery);
     }
   };
-
+  
+  //判断是否是dom元素
+  var isDOM = ( typeof HTMLElement === 'object' ) ?
+          function(obj){
+              return obj instanceof HTMLElement;
+          } :
+          function(obj){
+              return obj && typeof obj === 'object' && obj.nodeType === 1 && typeof obj.nodeName === 'string';
+          }
+  
   callWithJQuery(function($) {
 
     /*
@@ -811,7 +820,7 @@
                 };
               })(this));
             default:
-              return this.colKeys.sort(this.arrSort(this.colAttrs));
+              return this.colKeys;//.sort(this.arrSort(this.colAttrs));
           }
         }
       };
@@ -911,6 +920,7 @@
      */
     pivotTableRenderer = function(pivotData, opts) {
       var aggregator, c, colAttrs, colKey, colKeys, defaults, getClickHandler, i, j, r, result, rowAttrs, rowKey, rowKeys, spanSize, tbody, td, th, thead, totalAggregator, tr, txt, val, x;
+      var getRenderOpts;
       defaults = {
         table: {
           clickCallback: null
@@ -924,7 +934,52 @@
       rowAttrs = pivotData.rowAttrs;
       rowKeys = pivotData.getRowKeys();
       colKeys = pivotData.getColKeys();
-      if (opts.table.clickCallback) {
+      if (opts.table.renderCell) {//扩展自定义渲染方法
+    	var isObjectValueContains = function(a,b){//js对象b是否包含a
+    		var aProps = Object.getOwnPropertyNames(a);
+    	    var bProps = Object.getOwnPropertyNames(b);
+    	    for (var i = 0; i < aProps.length; i++) {
+    	    	var propName = aProps[i];
+    	    	if(!b.hasOwnProperty(propName) || a[propName]!==b[propName]){
+    	    		return false;
+    	    	}
+    	    }
+    	    return true;
+    	}
+    	getRenderOpts = function(value, rowValues, colValues){
+    		var renderReqArrays = opts.table.renderCell();
+    		if(renderReqArrays){//计算出filter
+	    		var attr, filters, i;
+	            filters = {};
+	            for (i in colAttrs) {
+	              if (!hasProp.call(colAttrs, i)) continue;
+	              attr = colAttrs[i];
+	              if (colValues[i] != null) {
+	                filters[attr] = colValues[i];
+	              }
+	            }
+	            for (i in rowAttrs) {
+	              if (!hasProp.call(rowAttrs, i)) continue;
+	              attr = rowAttrs[i];
+	              if (rowValues[i] != null) {
+	                filters[attr] = rowValues[i];
+	              }
+	            }
+	            
+    			var records = [];
+    			for(var i=0;i<renderReqArrays.length;i++){
+    				if(isObjectValueContains(renderReqArrays[i].filter, filters)){
+    					pivotData.forEachMatchingRecord(filters,
+	                            function(record){records.push(record);});
+    					return function(src){
+    						return renderReqArrays[i].method(src, records, value, filters, pivotData);
+    					}
+    	            }
+    			}
+    		}
+    	  }
+      }
+      if (opts.table.clickCallback) {//事件不够自己加
         getClickHandler = function(value, rowValues, colValues) {
           var attr, filters, i;
           filters = {};
@@ -1004,7 +1059,27 @@
             if (parseInt(j) === colAttrs.length - 1 && rowAttrs.length !== 0) {
               th.setAttribute("rowspan", 2);
             }
-            tr.appendChild(th);
+            var k = parseInt(j);
+            if (k+1 < colKey.length && colKey[k+1] == "null"){
+            	var kk = k+1; var rowspan =1;
+            	while(true){
+            		if(kk+1 <= colKey.length && colKey[kk] == "null"){
+            			rowspan++;
+            			kk++;
+            		}else{
+            			break;
+            		}
+            	}
+            	if(rowAttrs.length !== 0){
+            		th.setAttribute("rowspan", rowspan + 1);
+            	}else{
+            		th.setAttribute("rowspan", rowspan);
+            	}
+            }
+            
+            if(th.textContent!="null"){
+            	tr.appendChild(th);
+            }
           }
         }
         if (parseInt(j) === 0) {
@@ -1062,12 +1137,23 @@
           val = aggregator.value();
           td = document.createElement("td");
           td.className = "pvtVal row" + i + " col" + j;
-          td.textContent = aggregator.format(val);
-          td.setAttribute("data-value", val);
+          if(isNaN(val)){//对字符串的特殊处理
+        	  td.textContent = val;
+        	  td.setAttribute("data-value", 0);
+          }else{
+        	  td.textContent = aggregator.format(val);
+        	  td.setAttribute("data-value", val);
+          }
           if (getClickHandler != null) {
             td.onclick = getClickHandler(val, rowKey, colKey);
           }
-          tr.appendChild(td);
+          if (getRenderOpts != null) {
+        	  var renderFunc = getRenderOpts(val, rowKey, colKey);
+        	  var renderResult = renderFunc?renderFunc(td):td;
+        	  tr.appendChild(isDOM(renderResult)?renderResult:$(renderResult)[0]);
+          }else{
+        	  tr.appendChild(td);
+          }
         }
         totalAggregator = pivotData.getAggregator(rowKey, []);
         val = totalAggregator.value();
