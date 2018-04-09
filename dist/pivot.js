@@ -1977,7 +1977,7 @@
       return this;
     };
 
-    $.fn.table2Excel = function(file_name,sheet_name){
+    $.fn.pivotTable2Excel = function(file_name,sheet_name){
       var $this = this;
       var uri = "data:application/vnd.ms-excel;base64,"
       var template = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
