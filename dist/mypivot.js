@@ -3,9 +3,9 @@ $(function(){
 });
 
 function initPivot(){
-	var sum = $.pivotUtilities.aggregatorTemplates.sum;
+	var sumNumAndPrintString = $.pivotUtilities.aggregatorTemplates.sumNumAndPrintString;
     var numberFormat = $.pivotUtilities.numberFormat;
-    var intFormat = numberFormat({digitsAfterDecimal: 1}); //suffix:"元" thousandsSep:" ", decimalSep:","
+    var intFormat = numberFormat({digitsAfterDecimal: 1}); //数据显示的格式化 可选项：suffix:"元" thousandsSep:" ", decimalSep:","
     
     var rawData = [ 
 					{year:"2014",month: "1月", art: "余额",  value: 10},
@@ -74,65 +74,28 @@ function initPivot(){
     	4: "四、无形资产摊销",
     }
     
-    var plusOne = function(formatter){
-    	if (formatter == null) {
-            formatter = numberFormat();
-        }
-        return function(arg) {
-        	var attr = arg[0];
-            return function(data, rowKey, colKey) {
-                return {
-                  runtimes : 0,
-                  numtimes : 0,
-                	
-                  plainText : [],
-                  sumNum: 0,
-                  push: function(record) {
-                	  if (!isNaN(parseFloat(record[attr]))) {
-                		  this.sumNum += record[attr];
-                		  this.numtimes++;
-                	  }else{
-                		  if(this.plainText.indexOf(record[attr]) < 0){//去重
-                			  this.plainText.push(record[attr]);
-                		  }
-                	  }
-                	  this.runtimes++;
-                  },
-                  value: function() {
-                	  if(this.runtimes >= this.numtimes && this.numtimes > 0){
-                		  return this.sumNum;
-                	  }else if(this.numtimes == 0 && this.runtimes > 0 ){
-                		  return this.plainText.join(",");
-                	  }
-                  },
-                  format: formatter
-                };
-              };
-            };
-    }
-    
+
 	$("#output").pivot(
 				rawData,
 	            {
 	                rows: ["年份","月份"],
 	                cols: ["2014年度","大类","小类","细项"],
-	                aggregator: plusOne(intFormat)(["value"]),//sum(intFormat)(["value"])
+	                aggregator: sumNumAndPrintString(intFormat)(["value"]),//sum(intFormat)(["value"])
 	                rendererName: "Table",
+					showColTotal: false,
 	                rendererOptions:{table:{
 	                	                     renderCell:function(){//自定义的渲染方法 filter筛选单元格，method是渲染方法
 	                	                    	return [{
-		                	                    	filter:{"2014年度":"费用明细", 
-		                	                    		    "大类":"二、直接投入费用",
-		                	                    		    "小类":"用于中间试验和产品试制的模具、工艺装备开发及制造费",
-		                	                    		    "年份":"2014",
-		                	                    		    "月份":"1月"},
-		                	                    	method:function(src, records, value, filters, pivotData){
-		                	                    		console.log(src);
-		                	                    		src.innerHTML = "<font color='red'>"+ src.innerText +"</font>";
-		                	                    		console.log(records);
-		                	                    		return src;
-		                	                    	}
-	                	                       }]
+														filter:{"2014年度":"费用明细",
+																"大类":"二、直接投入费用",
+																"小类":"用于中间试验和产品试制的模具、工艺装备开发及制造费"},
+														method:function(src, records, value, filters, rows, pivotData){
+															var my_value = rows[6].value * rows[7].value;
+															pivotData.setColValue(src, my_value);
+															return src;
+														}
+	                	                      		}
+													]
 	                	                     },
 	                						 clickCallback:function(e, value, filters, pivotData){
 							                	var names = [];
@@ -165,3 +128,37 @@ function initPivot(){
 	            },"zh"
 	        );
 };
+
+var table2Excel = (function(){
+	var uri = "data:application/vnd.ms-excel;base64,"
+	var template = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
+				   'xmlns="http://www.w3.org/TR/REC-html40"> ' +
+				   '<head>' + 
+				   '<!--[if gte mso 9]>' +
+				   '<xml>' + 
+				     '<x:ExcelWorkbook>'+
+				     	'<x:ExcelWorksheets>' + 
+				     		'<x:ExcelWorksheet>' + 
+				     			'<x:Name>{worksheet}</x:Name>' + 
+				     			'<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'+
+				     		'</x:ExcelWorksheet>'+
+				     	'</x:ExcelWorksheets>' +
+				     '</x:ExcelWorkbook>'+
+				   '</xml><![endif]-->'+
+			       '<style type="text/css">' +
+			       '.pvtUi{color:#333}table.pvtTable{font-size:8pt;text-align:left;border-collapse:collapse}table.pvtTable tbody tr th,table.pvtTable thead tr th{background-color:#e6EEEE;border:1px solid #CDCDCD;font-size:8pt;padding:5px}table.pvtTable .pvtColLabel{text-align:center}table.pvtTable .pvtTotalLabel{text-align:right}table.pvtTable tbody tr td{color:#3D3D3D;padding:5px;background-color:#FFF;border:1px solid #CDCDCD;vertical-align:top;text-align:right}.pvtGrandTotal,.pvtTotal{font-weight:700}.pvtVals{text-align:center;white-space:nowrap}.pvtColOrder,.pvtRowOrder{cursor:pointer;width:15px;margin-left:5px;display:inline-block}.pvtAggregator{margin-bottom:5px}.pvtAxisContainer,.pvtVals{border:1px solid gray;background:#EEE;padding:5px;min-width:20px;min-height:20px;user-select:none;-webkit-user-select:none;-moz-user-select:none;-khtml-user-select:none;-ms-user-select:none}.pvtAxisContainer li{padding:8px 6px;list-style-type:none;cursor:move}.pvtAxisContainer li.pvtPlaceholder{-webkit-border-radius:5px;padding:3px 15px;-moz-border-radius:5px;border-radius:5px;border:1px dashed #aaa}.pvtAxisContainer li span.pvtAttr{-webkit-text-size-adjust:100%;background:#F3F3F3;border:1px solid #DEDEDE;padding:2px 5px;white-space:nowrap;-webkit-border-radius:5px;-moz-border-radius:5px;border-radius:5px}.pvtTriangle{cursor:pointer;color:grey}.pvtHorizList li{display:inline}.pvtVertList{vertical-align:top}.pvtFilteredAttribute{font-style:italic}.pvtFilterBox{z-index:100;width:300px;border:1px solid gray;background-color:#fff;position:absolute;text-align:center}.pvtFilterBox h4{margin:15px}.pvtFilterBox p{margin:10px auto}.pvtFilterBox label{font-weight:400}.pvtFilterBox input[type=checkbox]{margin-right:10px;margin-left:10px}.pvtFilterBox input[type=text]{width:230px}.pvtFilterBox .count{color:gray;font-weight:400;margin-left:3px}.pvtCheckContainer{text-align:left;font-size:14px;white-space:nowrap;overflow-y:scroll;width:100%;max-height:250px;border-top:1px solid #d3d3d3;border-bottom:1px solid #d3d3d3}.pvtCheckContainer p{margin:5px}.pvtRendererArea{padding:5px}'+
+		           '</style>' +
+				   '</head>'+
+				   '<body link="blue" vlink="purple">{table}</body></html>';
+	var base64 = function(s){
+		return window.btoa(unescape(encodeURIComponent(s)));
+	}
+	var format = function(s,c){
+		return s.replace(/{(\w+)}/g, function(m, p) {return c[p]; });
+	}
+	return function(selector, name) {
+        var $table = $(selector);
+        var ctx = {worksheet: name , table: $table.html()}
+        window.location.href = uri + base64(format(template, ctx))
+    }
+})();

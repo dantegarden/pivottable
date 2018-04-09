@@ -83,6 +83,9 @@
               push: function() {
                 return this.count++;
               },
+              fold: function(){
+                this.push();
+              },
               value: function() {
                 return this.count;
               },
@@ -107,6 +110,11 @@
                   return this.uniq.push(record[attr]);
                 }
               },
+              fold: function(val){
+                var obj = {}
+                obj[attr] = val;
+                this.push(obj);
+              },
               value: function() {
                 return fn(this.uniq);
               },
@@ -130,6 +138,11 @@
                 if (!isNaN(parseFloat(record[attr]))) {
                   return this.sum += parseFloat(record[attr]);
                 }
+              },
+              fold: function(val){
+                var obj = {}
+                obj[attr] = val;
+                this.push(obj);
               },
               value: function() {
                 return this.sum;
@@ -171,6 +184,11 @@
                   }
                 }
               },
+              fold: function(val){
+                var obj = {}
+                obj[attr] = val;
+                this.push(obj);
+              },
               value: function() {
                 return this.val;
               },
@@ -202,6 +220,11 @@
                 if (!isNaN(x)) {
                   return this.vals.push(x);
                 }
+              },
+              fold: function(val){
+                var obj = {}
+                obj[attr] = val;
+                this.push(obj);
               },
               value: function() {
                 var i;
@@ -253,6 +276,11 @@
                   return this.m = m_new;
                 }
               },
+              fold: function(val){
+                var obj = {}
+                obj[attr] = val;
+                this.push(obj);
+              },
               value: function() {
                 if (mode === "mean") {
                   if (this.n === 0) {
@@ -296,6 +324,12 @@
                   return this.sumDenom += parseFloat(record[denom]);
                 }
               },
+              fold: function(val1, val2){
+                var obj = {}
+                obj[num] = val1;
+                obj[denom] = val2
+                this.push(obj);
+              },
               value: function() {
                 return this.sumNum / this.sumDenom;
               },
@@ -326,6 +360,12 @@
                 if (!isNaN(parseFloat(record[denom]))) {
                   return this.sumDenom += parseFloat(record[denom]);
                 }
+              },
+              fold: function(val1, val2){
+                var obj = {}
+                obj[num] = val1;
+                obj[denom] = val2
+                this.push(obj);
               },
               value: function() {
                 var sign;
@@ -359,11 +399,55 @@
               push: function(record) {
                 return this.inner.push(record);
               },
+              fold: function(record){
+                this.push(record);
+              },
               format: formatter,
               value: function() {
                 return this.inner.value() / data.getAggregator.apply(data, this.selector).inner.value();
               },
               numInputs: wrapped.apply(null, x)().numInputs
+            };
+          };
+        };
+      },
+      sumNumAndPrintString:function(formatter){
+        if (formatter == null) {
+          formatter = usFmt;
+        }
+        return function(arg) {
+          var attr = arg[0];
+          return function(data, rowKey, colKey) {
+            return {
+              runtimes : 0,
+              numtimes : 0,
+
+              plainText : [],
+              sumNum: 0,
+              push: function(record) {
+                if (!isNaN(parseFloat(record[attr]))) {
+                  this.sumNum += record[attr];
+                  this.numtimes++;
+                }else{
+                  if(this.plainText.indexOf(record[attr]) < 0){//去重
+                    this.plainText.push(record[attr]);
+                  }
+                }
+                this.runtimes++;
+              },
+              fold: function(val){
+                var obj = {}
+                obj[attr] = val;
+                this.push(obj);
+              },
+              value: function() {
+                if(this.runtimes >= this.numtimes && this.numtimes > 0){
+                  return this.sumNum;
+                }else if(this.numtimes == 0 && this.runtimes > 0 ){
+                  return this.plainText.join(",");
+                }
+              },
+              format: formatter
             };
           };
         };
@@ -428,7 +512,8 @@
         "Sum as Fraction of Columns": tpl.fractionOf(tpl.sum(), "col", usFmtPct),
         "Count as Fraction of Total": tpl.fractionOf(tpl.count(), "total", usFmtPct),
         "Count as Fraction of Rows": tpl.fractionOf(tpl.count(), "row", usFmtPct),
-        "Count as Fraction of Columns": tpl.fractionOf(tpl.count(), "col", usFmtPct)
+        "Count as Fraction of Columns": tpl.fractionOf(tpl.count(), "col", usFmtPct),
+        "Sum Num And Print String": tpl.sumNumAndPrintString(usFmt)
       };
     })(aggregatorTemplates);
     renderers = {
@@ -638,7 +723,7 @@
      */
     PivotData = (function() {
       function PivotData(input, opts) {
-        var ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, ref8, ref9;
+        var ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, ref8, ref9, ref10, ref11;
         if (opts == null) {
           opts = {};
         }
@@ -667,6 +752,9 @@
         this.colTotals = {};
         this.allTotal = this.aggregator(this, [], []);
         this.sorted = false;
+        this.showRowTotal = (ref10 = opts.showRowTotal) != null ? ref10 : true;
+        this.showColTotal = (ref11 = opts.showColTotal) != null ? ref11 : true;
+
         PivotData.forEachRecord(this.input, this.derivedAttributes, (function(_this) {
           return function(record) {
             if (_this.filter(record)) {
@@ -900,6 +988,13 @@
         };
       };
 
+      PivotData.prototype.setColValue = function(src, val){
+         src = isDOM(src)?src:$(src)[0];
+         var aggregator = this.getAggregator([], []);
+         src.innerText = aggregator.format(val);
+         return src;
+      }
+
       return PivotData;
 
     })();
@@ -971,8 +1066,8 @@
     				if(isObjectValueContains(renderReqArrays[i].filter, filters)){
     					pivotData.forEachMatchingRecord(filters,
 	                            function(record){records.push(record);});
-    					return function(src){
-    						return renderReqArrays[i].method(src, records, value, filters, pivotData);
+    					return function(src, rows){
+    						return renderReqArrays[i].method(src, records, value, filters, rows, pivotData);
     					}
     	            }
     			}
@@ -1111,6 +1206,8 @@
       }
       result.appendChild(thead);
       tbody = document.createElement("tbody");
+      var e_trs = [];
+
       for (i in rowKeys) {
         if (!hasProp.call(rowKeys, i)) continue;
         rowKey = rowKeys[i];
@@ -1130,6 +1227,8 @@
             tr.appendChild(th);
           }
         }
+
+        var e_tds = [];
         for (j in colKeys) {
           if (!hasProp.call(colKeys, j)) continue;
           colKey = colKeys[j];
@@ -1147,15 +1246,33 @@
           if (getClickHandler != null) {
             td.onclick = getClickHandler(val, rowKey, colKey);
           }
+          e_tds.push({index:j, content:td, value: val});
+        }
+
+        totalAggregator = pivotData.aggregator(pivotData, rowKey, []);
+        for(var k in e_tds){
+          var colKey = colKeys[e_tds[k].index];
+          var val = e_tds[k].value;
+          var td = e_tds[k].content;
           if (getRenderOpts != null) {
-        	  var renderFunc = getRenderOpts(val, rowKey, colKey);
-        	  var renderResult = renderFunc?renderFunc(td):td;
-        	  tr.appendChild(isDOM(renderResult)?renderResult:$(renderResult)[0]);
+            var renderFunc = getRenderOpts(val, rowKey, colKey);
+            var renderResult = renderFunc?renderFunc(td, e_tds):td;
+            var _td = isDOM(renderResult)?renderResult:$(renderResult)[0]; //渲染后的td dom
+            tr.appendChild(_td);
+
+            var reg = /^[-]?[0-9]+.?[0-9]*$/;
+            var _td_val = reg.test(_td.innerText)?parseFloat(_td.innerText):_td.innerText;
+            totalAggregator.fold(_td_val)//TODO
+
+            e_tds[k].content = _td;
+            e_tds[k].value = _td_val;
           }else{
-        	  tr.appendChild(td);
+            tr.appendChild(td);
+            totalAggregator.fold(val)//TODO
           }
         }
-        totalAggregator = pivotData.getAggregator(rowKey, []);
+        var flatRowKey = rowKey.join(String.fromCharCode(0));
+        pivotData.rowTotals[flatRowKey] = totalAggregator;
         val = totalAggregator.value();
         td = document.createElement("td");
         td.className = "pvtTotal rowTotal";
@@ -1167,6 +1284,8 @@
         td.setAttribute("data-for", "row" + i);
         tr.appendChild(td);
         tbody.appendChild(tr);
+
+        e_trs[i] = e_tds;
       }
       tr = document.createElement("tr");
       th = document.createElement("th");
@@ -1174,10 +1293,20 @@
       th.innerHTML = opts.localeStrings.totals;
       th.setAttribute("colspan", rowAttrs.length + (colAttrs.length === 0 ? 0 : 1));
       tr.appendChild(th);
+
+      var total_col = [];
       for (j in colKeys) {
         if (!hasProp.call(colKeys, j)) continue;
-        colKey = colKeys[j];
-        totalAggregator = pivotData.getAggregator([], colKey);
+        colKey = colKeys[j];//纵向合计
+        totalAggregator = pivotData.aggregator(pivotData, [], colKey);
+        for (i in e_trs) {
+          var e_tr = e_trs[i];
+          var e_td = e_tr[j];
+          totalAggregator.fold(e_td.value)
+        }
+        flatColKey = colKey.join(String.fromCharCode(0));
+        pivotData.colTotals[flatColKey] = totalAggregator;
+
         val = totalAggregator.value();
         td = document.createElement("td");
         td.className = "pvtTotal colTotal";
@@ -1188,8 +1317,15 @@
         }
         td.setAttribute("data-for", "col" + j);
         tr.appendChild(td);
+
+        total_col.push(val);
       }
-      totalAggregator = pivotData.getAggregator([], []);
+      //总合计
+      //totalAggregator = pivotData.getAggregator([], []);
+      totalAggregator = pivotData.aggregator(pivotData, [], []);
+      for(var k in total_col){
+        totalAggregator.fold(total_col[k]);
+      }
       val = totalAggregator.value();
       td = document.createElement("td");
       td.className = "pvtGrandTotal";
@@ -1231,7 +1367,12 @@
         aggregatorName: "Count",
         sorters: {},
         derivedAttributes: {},
-        renderer: pivotTableRenderer
+        showRowTotal: true,
+        showColTotal: true,
+        renderer: pivotTableRenderer,
+        fnDrawCallback : function(pivotData){
+          return this;
+        }
       };
       localeStrings = $.extend(true, {}, locales.en.localeStrings, locales[locale].localeStrings);
       localeDefaults = {
@@ -1264,7 +1405,18 @@
       while (x.hasChildNodes()) {
         x.removeChild(x.lastChild);
       }
-      return this.append(result);
+      this.append(result);
+
+      opts.fnDrawCallback(pivotData);//允许传入回调函数
+      //隐藏行合计
+      if(!opts.showRowTotal){
+        $(this).find("th.pvtRowTotalLabel,td.rowTotal,td.pvtGrandTotal").remove();
+      }
+      //隐藏列合计
+      if(!opts.showColTotal){
+        $(this).find("th.pvtColTotalLabel").parent("tr").remove();
+      }
+      return this;
     };
 
     /*
@@ -1824,6 +1976,79 @@
       heatmapper(".pvtTotal.colTotal");
       return this;
     };
+
+    $.fn.table2Excel = function(file_name,sheet_name){
+      var $this = this;
+      var uri = "data:application/vnd.ms-excel;base64,"
+      var template = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
+          'xmlns="http://www.w3.org/TR/REC-html40"> ' +
+          '<head>' +
+          '<!--[if gte mso 9]>' +
+          '<xml>' +
+          '<x:ExcelWorkbook>'+
+          '<x:ExcelWorksheets>' +
+          '<x:ExcelWorksheet>' +
+          '<x:Name>{worksheet}</x:Name>' +
+          '<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'+
+          '</x:ExcelWorksheet>'+
+          '</x:ExcelWorksheets>' +
+          '</x:ExcelWorkbook>'+
+          '</xml><![endif]-->'+
+          '<style type="text/css">' +
+          '.pvtUi{color:#333}table.pvtTable{font-size:8pt;text-align:left;border-collapse:collapse}table.pvtTable tbody tr th,table.pvtTable thead tr th{background-color:#e6EEEE;border:1px solid #CDCDCD;font-size:8pt;padding:5px}table.pvtTable .pvtColLabel{text-align:center}table.pvtTable .pvtTotalLabel{text-align:right}table.pvtTable tbody tr td{color:#3D3D3D;padding:5px;background-color:#FFF;border:1px solid #CDCDCD;vertical-align:top;text-align:right}.pvtGrandTotal,.pvtTotal{font-weight:700}.pvtVals{text-align:center;white-space:nowrap}.pvtColOrder,.pvtRowOrder{cursor:pointer;width:15px;margin-left:5px;display:inline-block}.pvtAggregator{margin-bottom:5px}.pvtAxisContainer,.pvtVals{border:1px solid gray;background:#EEE;padding:5px;min-width:20px;min-height:20px;user-select:none;-webkit-user-select:none;-moz-user-select:none;-khtml-user-select:none;-ms-user-select:none}.pvtAxisContainer li{padding:8px 6px;list-style-type:none;cursor:move}.pvtAxisContainer li.pvtPlaceholder{-webkit-border-radius:5px;padding:3px 15px;-moz-border-radius:5px;border-radius:5px;border:1px dashed #aaa}.pvtAxisContainer li span.pvtAttr{-webkit-text-size-adjust:100%;background:#F3F3F3;border:1px solid #DEDEDE;padding:2px 5px;white-space:nowrap;-webkit-border-radius:5px;-moz-border-radius:5px;border-radius:5px}.pvtTriangle{cursor:pointer;color:grey}.pvtHorizList li{display:inline}.pvtVertList{vertical-align:top}.pvtFilteredAttribute{font-style:italic}.pvtFilterBox{z-index:100;width:300px;border:1px solid gray;background-color:#fff;position:absolute;text-align:center}.pvtFilterBox h4{margin:15px}.pvtFilterBox p{margin:10px auto}.pvtFilterBox label{font-weight:400}.pvtFilterBox input[type=checkbox]{margin-right:10px;margin-left:10px}.pvtFilterBox input[type=text]{width:230px}.pvtFilterBox .count{color:gray;font-weight:400;margin-left:3px}.pvtCheckContainer{text-align:left;font-size:14px;white-space:nowrap;overflow-y:scroll;width:100%;max-height:250px;border-top:1px solid #d3d3d3;border-bottom:1px solid #d3d3d3}.pvtCheckContainer p{margin:5px}.pvtRendererArea{padding:5px}'+
+          '</style>' +
+          '</head>'+
+          '<body link="blue" vlink="purple">{table}</body></html>';
+      var base64 = function(s){
+        return window.btoa(unescape(encodeURIComponent(s)));
+      }
+      var format = function(s,c){
+        return s.replace(/{(\w+)}/g, function(m, p) {return c[p]; });
+      }
+      var getBlob = function(base64){
+        return b64toBlob(getData(base64), getContentType(base64));
+      }
+      var getContentType = function(base64){
+        return /data:([^;]*);/i.exec(base64)[1];
+      }
+      var getData = function (base64) {
+        return base64.substr(base64.indexOf("base64,") + 7, base64.length);
+      }
+      var b64toBlob = function (b64Data, contentType, sliceSize) {
+        contentType = contentType || '';
+        sliceSize = sliceSize || 512;
+
+        var byteCharacters = atob(b64Data);
+        var byteArrays = [];
+
+        for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+          var slice = byteCharacters.slice(offset, offset + sliceSize);
+
+          var byteNumbers = new Array(slice.length);
+          for (var i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+          }
+
+          var byteArray = new Uint8Array(byteNumbers);
+
+          byteArrays.push(byteArray);
+        }
+
+        var blob = new Blob(byteArrays, { type: contentType });
+        return blob;
+      }
+
+      var ctx = {worksheet: sheet_name , table: $this.html()}
+
+      var $btn = $("<a name='pivotBtnDownLoad' style='display:none;'>下载</a>");
+      $btn.attr('download',file_name);
+
+      var blob = getBlob(uri + base64(format(template, ctx)))
+      $btn.attr('href',URL.createObjectURL(blob));
+      $btn.appendTo($this);
+      $btn[0].click();
+      $btn.remove();
+    }
 
     /*
     Barchart post-processing
