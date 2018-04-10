@@ -48,9 +48,10 @@ function initPivot(){
 	                
 	                {year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"工资薪金", value: 10},
 	                {year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"五险一金", value: 10},
-	                {year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"外聘研发人员的劳务费", value: 10}
-	                
-	                
+	                {year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"外聘研发人员的劳务费", value: 10},
+
+					{year:"2015", art: "余额",  value: 11},
+					{year:"2015", art: "借或贷",  value: "借"}
 	              ];
     
 //    var dataTransform = function(callback){
@@ -82,7 +83,7 @@ function initPivot(){
 	                cols: ["2014年度","大类","小类","细项"],
 	                aggregator: sumNumAndPrintString(intFormat)(["value"]),//sum(intFormat)(["value"])
 	                rendererName: "Table",
-					showColTotal: false,
+					//showColTotal: false,
 	                rendererOptions:{table:{
 	                	                     renderCell:function(){//自定义的渲染方法 filter筛选单元格，method是渲染方法
 	                	                    	return [{

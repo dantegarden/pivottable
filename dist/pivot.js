@@ -1224,7 +1224,27 @@
             if (parseInt(j) === rowAttrs.length - 1 && colAttrs.length !== 0) {
               th.setAttribute("colspan", 2);
             }
-            tr.appendChild(th);
+
+            var k = parseInt(j);
+            if(k+1 < rowKey.length && rowKey[k+1] === "null"){
+              var kk = k+1; var colspan =1;
+              while(true){
+                if(kk+1 <= rowKey.length && rowKey[kk] === "null"){
+                  colspan++;
+                  kk++;
+                }else{
+                  break;
+                }
+              }
+              if(colAttrs.length !== 0){
+                th.setAttribute("colspan", colspan + 1);
+              }else{
+                th.setAttribute("colspan", colspan);
+              }
+            }
+            if(th.textContent!="null"){
+              tr.appendChild(th);
+            }
           }
         }
 
