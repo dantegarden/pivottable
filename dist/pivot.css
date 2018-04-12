@@ -4,7 +4,9 @@
 table.pvtTable {
     font-size: 8pt;
     text-align: left;
-    border-collapse: collapse;
+    /*border-collapse: collapse;*/
+    border-collapse: separate; /**若去掉,固定表头将会失灵*/
+    border-spacing: 0px;
 }
 table.pvtTable thead tr th, table.pvtTable tbody tr th {
     background-color: #e6EEEE;

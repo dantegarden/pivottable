@@ -1,5 +1,12 @@
 $(function(){
 	var pivotTable = initPivot();
+
+	var colgroup = "<colgroup>";
+	$(pivotTable).find("tbody tr:first th, tbody tr:first td").each(function(){
+		colgroup += "<col style='width:"+ $(this).width() +"px'>";
+	});
+	colgroup += "</colgroup>";
+	console.log(colgroup);
 });
 
 function initPivot(){
@@ -7,7 +14,10 @@ function initPivot(){
     var numberFormat = $.pivotUtilities.numberFormat;
     var intFormat = numberFormat({digitsAfterDecimal: 1}); //数据显示的格式化 可选项：suffix:"元" thousandsSep:" ", decimalSep:","
     
-    var rawData = [ 
+    var rawData = [
+		            {year:"2014",month: "1月", art: "摘要",  value: 10},
+					{year:"2014",month: "1月", art: "贷方金额",  value: 10},
+					{year:"2014",month: "1月", art: "借方金额",  value: 10},
 					{year:"2014",month: "1月", art: "余额",  value: 10},
 					{year:"2014",month: "2月", art: "余额",  value: 10},
 					{year:"2014",month: "1月", art: "借或贷",  value: "借"},
@@ -50,8 +60,22 @@ function initPivot(){
 	                {year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"五险一金", value: 10},
 	                {year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"外聘研发人员的劳务费", value: 10},
 
-					{year:"2015", art: "余额",  value: 11},
-					{year:"2015", art: "借或贷",  value: "借"}
+					{year:"2015", month:"1月", art: "余额",  value: 11},
+					{year:"2015", month:"2月", art: "借或贷",  value: "借"},
+					{year:"2016", month:"1月", art: "余额",  value: 12},
+					{year:"2016", month:"2月", art: "借或贷",  value: "借"},
+					{year:"2017", month:"1月", art: "余额",  value: 12},
+					{year:"2017", month:"2月", art: "余额",  value: 12},
+					{year:"2017", month:"3月", art: "余额",  value: 12},
+					{year:"2017", month:"4月", art: "余额",  value: 12},
+					{year:"2017", month:"5月", art: "余额",  value: 12},
+					{year:"2017", month:"6月", art: "借或贷",  value: "借"},
+					{year:"2017", month:"7月", art: "借或贷",  value: "借"},
+					{year:"2017", month:"8月", art: "借或贷",  value: "借"},
+					{year:"2017", month:"9月", art: "借或贷",  value: "借"},
+					{year:"2018", month:"1月", art: "余额",  value: 12},
+					{year:"2018", month:"2月", art: "借或贷",  value: "借"},
+
 	              ];
     
 //    var dataTransform = function(callback){
@@ -125,7 +149,9 @@ function initPivot(){
 	                	"细项":function(record){
 	                		return record.mixtype2;
 	                	}	                	
-	                }
+	                },
+					fixedRowHeader: true,
+					fixedColHeader: true
 	            },"zh"
 	        );
 };

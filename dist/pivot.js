@@ -71,6 +71,19 @@
       scaler: 100,
       suffix: "%"
     });
+    buildDerivedAttributes = function (nameDict){
+      var derivedAttributes = {};
+      for (var key in nameDict){
+        const mykey = key;
+        derivedAttributes[nameDict[key]["header"]] = function(record){
+          if(nameDict[mykey].selection){
+            return nameDict[mykey].selection[record[mykey]];
+          }
+          return record[mykey];
+        }
+      }
+      return derivedAttributes;
+    }
     aggregatorTemplates = {
       count: function(formatter) {
         if (formatter == null) {
@@ -723,7 +736,7 @@
      */
     PivotData = (function() {
       function PivotData(input, opts) {
-        var ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, ref8, ref9, ref10, ref11;
+        var ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, ref8, ref9, ref10, ref11, ref12, ref13;
         if (opts == null) {
           opts = {};
         }
@@ -754,7 +767,8 @@
         this.sorted = false;
         this.showRowTotal = (ref10 = opts.showRowTotal) != null ? ref10 : true;
         this.showColTotal = (ref11 = opts.showColTotal) != null ? ref11 : true;
-
+        this.fixedRowHeader = (ref12 = opts.fixedRowHeader) != null ? ref12 : false;
+        this.fixedColHeader = (ref13 = opts.fixedColHeader) != null ? ref13 : false;
         PivotData.forEachRecord(this.input, this.derivedAttributes, (function(_this) {
           return function(record) {
             if (_this.filter(record)) {
@@ -998,7 +1012,68 @@
       return PivotData;
 
     })();
+
+    /**eleFixed**/
+    $.eleFixed = {
+      targets: [],
+      push: null,
+      distory: null,
+      handler: null,
+      delete: null
+    }
+    $.eleFixed.push =  function (option) {
+      if(typeof option !== 'object') return console.error('eleFixed: push param must be a Object')
+      if(!option.target && !isDOM(option.target)) return console.error('eleFixed: target must be a HTMLElement')
+      if(((option.offsetTop && typeof option.offsetTop == 'number') || option.offsetTop === 0 )
+          || ((option.offsetLeft && typeof option.offsetLeft == 'number') || option.offsetLeft === 0 ) ){
+      }else{
+        return console.error('eleFixed: param\'s offsetLeft or offsetTop must be a Number')
+      }
+      $.eleFixed.targets.push(option)
+    }
+    $.eleFixed.handler = function(){
+      var offsetLeft = window.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLeft;
+      var offsetTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+      for(var i in $.eleFixed.targets){
+        if($.eleFixed.targets[i].offsetLeft){
+          if(offsetLeft > $.eleFixed.targets[i].offsetLeft){
+            $.eleFixed.targets[i].target.style.transform = 'translateX('+ (offsetLeft - $.eleFixed.targets[i].offsetLeft) +'px)'
+          }else{
+            $.eleFixed.targets[i].target.style.transform = 'translateX(0px)'
+          }
+        }
+        if($.eleFixed.targets[i].offsetTop){
+          if(offsetTop > $.eleFixed.targets[i].offsetTop){
+            $.eleFixed.targets[i].target.style.transform = 'translateY('+ (offsetTop - $.eleFixed.targets[i].offsetTop) +'px)'
+          }else{
+            $.eleFixed.targets[i].target.style.transform = 'translateY(0px)'
+          }
+        }
+      }
+    }
+    $.eleFixed.delete = function (target) {
+      if(target && isDOM(target)){
+        var targets = $.eleFixed.targets
+        for(var i in targets){
+          if(target.isEqualNode(targets[i].target)){
+            target.style.transform = 'translateY(0px)'
+            targets.splice(i, 1)
+            break
+          }
+        }
+      }
+    }
+    $.eleFixed.distory = function () {
+      window.removeEventListener('scroll', $.eleFixed.handler)
+      for(var i in $.eleFixed.targets){
+        $.eleFixed.targets[i].target.style.transform = 'translateY(0px)'
+      }
+      $.eleFixed = null
+    }
+    window.addEventListener('scroll', $.eleFixed.handler)
+
     $.pivotUtilities = {
+      buildDerivedAttributes: buildDerivedAttributes,
       aggregatorTemplates: aggregatorTemplates,
       aggregators: aggregators,
       renderers: renderers,
@@ -1389,6 +1464,8 @@
         derivedAttributes: {},
         showRowTotal: true,
         showColTotal: true,
+        fixedRowHeader: false,
+        fixedColHeader: false,
         renderer: pivotTableRenderer,
         fnDrawCallback : function(pivotData){
           return this;
@@ -1435,6 +1512,27 @@
       //隐藏列合计
       if(!opts.showColTotal){
         $(this).find("th.pvtColTotalLabel").parent("tr").remove();
+      }
+      //固定列表头
+      if(opts.fixedColHeader){
+        var left = $(this).find("tbody th").offset().left;
+        left = !isNaN(left)? left : 0;
+        $(this).find("tbody th").each(function(e){
+          $.eleFixed.push({target:$(this)[0], offsetLeft: left });
+        })
+
+      }
+      //固定行表头
+      if(opts.fixedRowHeader){
+        var top = $(this).find("thead").offset().top;
+        top = !isNaN(top)? top : 0;
+        $.eleFixed.push({target:$(this).find("thead")[0], offsetTop: top });
+
+        if(opts.fixedColHeader){//垂直固定 解决因transform样式使得层叠不正确的问题
+          var $thead = $(this).find("thead");
+          $thead.remove();
+          $(this).find("table").append($thead);//调换thead和tbody顺序
+        }
       }
       return this;
     };
