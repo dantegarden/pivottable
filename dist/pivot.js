@@ -1517,7 +1517,7 @@
       if(opts.fixedColHeader){
         var left = $(this).find("tbody th").offset().left;
         left = !isNaN(left)? left : 0;
-        $(this).find("tbody th").each(function(e){
+        $(this).find("tbody th,thead th.pvtAxisLabel,thead th:not([class])").each(function(e){
           $.eleFixed.push({target:$(this)[0], offsetLeft: left });
         })
 
