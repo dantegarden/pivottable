@@ -1331,7 +1331,7 @@
           val = aggregator.value();
           td = document.createElement("td");
           td.className = "pvtVal row" + i + " col" + j;
-          if(isNaN(val)){//对字符串的特殊处理
+          if(isNaN(parseFloat(val))){//对字符串的特殊处理
         	  td.textContent = val;
         	  td.setAttribute("data-value", 0);
           }else{
