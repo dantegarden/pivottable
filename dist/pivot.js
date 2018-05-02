@@ -29,7 +29,17 @@
     /*
     Utilities
      */
-    var PivotData, addSeparators, aggregatorTemplates, aggregators, dayNamesEn, derivers, getSort, locales, mthNamesEn, naturalSort, numberFormat, pivotTableRenderer, rd, renderers, rx, rz, sortAs, usFmt, usFmtInt, usFmtPct, zeroPad;
+    var PivotData, addSeparators, roundFixed, aggregatorTemplates, aggregators, dayNamesEn, derivers, getSort, locales, mthNamesEn, naturalSort, numberFormat, pivotTableRenderer, rd, renderers, rx, rz, sortAs, usFmt, usFmtInt, usFmtPct, zeroPad;
+
+    roundFixed = function(num, fixed){
+      var pos = num.toString().indexOf('.'),
+          decimal_places = num.toString().length - pos - 1,
+          _int = num * Math.pow(10, decimal_places),
+          divisor_1 = Math.pow(10, decimal_places - fixed),
+          divisor_2 = Math.pow(10, fixed);
+      return Math.round(_int / divisor_1) / divisor_2;
+    }
+
     addSeparators = function(nStr, thousandsSep, decimalSep) {
       var rgx, x, x1, x2;
       nStr += '';
@@ -37,9 +47,10 @@
       x1 = x[0];
       x2 = x.length > 1 ? decimalSep + x[1] : '';
       rgx = /(\d+)(\d{3})/;
-      while (rgx.test(x1)) {
-        x1 = x1.replace(rgx, '$1' + thousandsSep + '$2');
-      }
+      if(thousandsSep)
+        while (rgx.test(x1)) {
+          x1 = x1.replace(rgx, '$1' + thousandsSep + '$2');
+        }
       return x1 + x2;
     };
     numberFormat = function(opts) {
@@ -47,7 +58,7 @@
       defaults = {
         digitsAfterDecimal: 2,
         scaler: 1,
-        thousandsSep: ",",
+        thousandsSep: "",
         decimalSep: ".",
         prefix: "",
         suffix: ""
@@ -58,7 +69,7 @@
         if (isNaN(x) || !isFinite(x)) {
           return "";
         }
-        result = addSeparators((opts.scaler * x).toFixed(opts.digitsAfterDecimal), opts.thousandsSep, opts.decimalSep);
+        result = addSeparators(roundFixed(opts.scaler * x,opts.digitsAfterDecimal), opts.thousandsSep, opts.decimalSep);
         return "" + opts.prefix + result + opts.suffix;
       };
     };
@@ -438,8 +449,9 @@
               plainText : [],
               sumNum: 0,
               push: function(record) {
-                if (!isNaN(parseFloat(record[attr]))) {
-                  this.sumNum += record[attr];
+                var pFloat = parseFloat(record[attr]);
+                if (!isNaN(pFloat)) {
+                  this.sumNum += pFloat;
                   this.numtimes++;
                 }else{
                   if(this.plainText.indexOf(record[attr]) < 0){//去重

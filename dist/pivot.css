@@ -10,7 +10,7 @@ table.pvtTable {
 }
 table.pvtTable thead tr th, table.pvtTable tbody tr th {
     background-color: #e6EEEE;
-    border: 1px solid #CDCDCD;
+    /*border: 1px solid #CDCDCD;*/
     font-size: 8pt;
     padding: 5px;
 }
@@ -22,7 +22,7 @@ table.pvtTable tbody tr td {
     color: #3D3D3D;
     padding: 5px;
     background-color: #FFF;
-    border: 1px solid #CDCDCD;
+    /*border: 1px solid #CDCDCD;*/
     vertical-align: top;
     text-align: right;
 }
@@ -114,3 +114,37 @@ table.pvtTable tbody tr td {
 .pvtCheckContainer p{ margin: 5px; }
 
 .pvtRendererArea { padding: 5px;}
+
+
+/*=======  表格样式修改*/
+
+
+table.pvtTable{
+    border-top: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
+    border-left: 1px solid #ccc;
+}
+table.pvtTable tbody tr:nth-of-type(odd) td,.pvtTable tbody tr:nth-of-type(odd) th{
+    background-color: #efeff8;
+}
+table.pvtTable tbody tr:nth-of-type(even) td,.pvtTable tbody tr:nth-of-type(even) th{
+    background-color: #fff;
+}
+table.pvtTable thead tr th{
+    background-color: #eee;
+}
+table.pvtTable > tbody > tr > td,table.pvtTable > tbody > tr > th{
+    /*border: none;*/
+    border-top: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+}
+table.pvtTable > thead > tr > th{
+    /*border: none;*/
+    border-bottom: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+}
+table.pvtTable > tfoot {
+    background-color: #eee;
+    border-top: 2px solid #cacaca;
+    border-bottom: 1px solid #cacaca;
+}
