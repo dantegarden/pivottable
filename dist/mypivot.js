@@ -152,5 +152,5 @@ function initPivot(){
 };
 
 function downloadExcel(){
-	$("#output").pivotTable2Excel("交叉表","mySheet");
+	$("#output").pivotTable2Excel("交叉表.xlsx","mySheet");
 }
