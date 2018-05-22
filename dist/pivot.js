@@ -65,12 +65,18 @@
       };
       opts = $.extend({}, defaults, opts);
       return function(x) {
-        var result;
-        if (isNaN(x) || !isFinite(x)) {
-          return "";
+        var result, suffix = opts.suffix;
+        if(x && typeof(x) === "string" && x.indexOf("%")>-1){
+          suffix = "";
+          result = x;
+        }else{
+          if (isNaN(x) || !isFinite(x)) {
+            return "";
+          }
+          result = addSeparators(roundFixed(opts.scaler * x,opts.digitsAfterDecimal), opts.thousandsSep, opts.decimalSep);
         }
-        result = addSeparators(roundFixed(opts.scaler * x,opts.digitsAfterDecimal), opts.thousandsSep, opts.decimalSep);
-        return "" + opts.prefix + result + opts.suffix;
+
+        return "" + opts.prefix + result + suffix;//opts.suffix;
       };
     };
     usFmt = numberFormat();
@@ -448,9 +454,15 @@
 
               plainText : [],
               sumNum: 0,
+
+              suffixPercent:false,
+              percentParttern: new RegExp(/^[-]?\d{0,3}(\.\d{0,6})?%$/),
               push: function(record) {
                 var pFloat = parseFloat(record[attr]);
                 if (!isNaN(pFloat)) {
+                  if(this.percentParttern.test(record[attr])){
+                    this.suffixPercent = true;
+                  }
                   this.sumNum += pFloat;
                   this.numtimes++;
                 }else{
@@ -467,7 +479,11 @@
               },
               value: function() {
                 if(this.runtimes >= this.numtimes && this.numtimes > 0){
-                  return this.sumNum;
+                  if(this.suffixPercent){
+                    return this.sumNum + "%";
+                  }else{
+                    return this.sumNum;
+                  }
                 }else if(this.numtimes == 0 && this.runtimes > 0 ){
                   return this.plainText.join(",");
                 }
@@ -1021,6 +1037,13 @@
          return src;
       }
 
+      PivotData.prototype.getColValue = function(src){
+        src = isDOM(src)?src:$(src)[0];
+        var reg = /^[-]?[0-9]+.?[0-9]*$/;
+        var _td_val = reg.test(src.innerText)?parseFloat(src.innerText):src.innerText;
+        return _td_val;
+      }
+
       return PivotData;
 
     })();
@@ -1369,7 +1392,7 @@
 
             var reg = /^[-]?[0-9]+.?[0-9]*$/;
             var _td_val = reg.test(_td.innerText)?parseFloat(_td.innerText):_td.innerText;
-            totalAggregator.fold(_td_val)//TODO
+            totalAggregator.fold(_td.textContent)//TODO
 
             e_tds[k].content = _td;
             e_tds[k].value = _td_val;
@@ -1401,6 +1424,8 @@
       th.setAttribute("colspan", rowAttrs.length + (colAttrs.length === 0 ? 0 : 1));
       tr.appendChild(th);
 
+      var total_col_tds = [];
+
       var total_col = [];
       for (j in colKeys) {
         if (!hasProp.call(colKeys, j)) continue;
@@ -1409,7 +1434,7 @@
         for (i in e_trs) {
           var e_tr = e_trs[i];
           var e_td = e_tr[j];
-          totalAggregator.fold(e_td.value)
+          totalAggregator.fold(e_td.content.textContent)
         }
         flatColKey = colKey.join(String.fromCharCode(0));
         pivotData.colTotals[flatColKey] = totalAggregator;
@@ -1425,8 +1450,12 @@
         td.setAttribute("data-for", "col" + j);
         tr.appendChild(td);
 
+        total_col_tds.push(td);//收集合计行元素
+
         total_col.push(val);
       }
+
+      pivotData.totalColRow = total_col_tds;
       //总合计
       //totalAggregator = pivotData.getAggregator([], []);
       totalAggregator = pivotData.aggregator(pivotData, [], []);
@@ -2107,78 +2136,100 @@
       return this;
     };
 
-    $.fn.pivotTable2Excel = function(file_name,sheet_name){
+    $.fn.pivotTable2Excel = function(file_name, sheet_name){
       var $this = this;
-      var uri = "data:application/vnd.ms-excel;base64,"
-      var template = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
-          'xmlns="http://www.w3.org/TR/REC-html40"> ' +
-          '<head>' +
-          '<!--[if gte mso 9]>' +
-          '<xml>' +
-          '<x:ExcelWorkbook>'+
-          '<x:ExcelWorksheets>' +
-          '<x:ExcelWorksheet>' +
-          '<x:Name>{worksheet}</x:Name>' +
-          '<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'+
-          '</x:ExcelWorksheet>'+
-          '</x:ExcelWorksheets>' +
-          '</x:ExcelWorkbook>'+
-          '</xml><![endif]-->'+
-          '<style type="text/css">' +
-          '.pvtUi{color:#333}table.pvtTable{font-size:8pt;text-align:left;border-collapse:collapse}table.pvtTable tbody tr th,table.pvtTable thead tr th{background-color:#e6EEEE;border:1px solid #CDCDCD;font-size:8pt;padding:5px}table.pvtTable .pvtColLabel{text-align:center}table.pvtTable .pvtTotalLabel{text-align:right}table.pvtTable tbody tr td{color:#3D3D3D;padding:5px;background-color:#FFF;border:1px solid #CDCDCD;vertical-align:top;text-align:right}.pvtGrandTotal,.pvtTotal{font-weight:700}.pvtVals{text-align:center;white-space:nowrap}.pvtColOrder,.pvtRowOrder{cursor:pointer;width:15px;margin-left:5px;display:inline-block}.pvtAggregator{margin-bottom:5px}.pvtAxisContainer,.pvtVals{border:1px solid gray;background:#EEE;padding:5px;min-width:20px;min-height:20px;user-select:none;-webkit-user-select:none;-moz-user-select:none;-khtml-user-select:none;-ms-user-select:none}.pvtAxisContainer li{padding:8px 6px;list-style-type:none;cursor:move}.pvtAxisContainer li.pvtPlaceholder{-webkit-border-radius:5px;padding:3px 15px;-moz-border-radius:5px;border-radius:5px;border:1px dashed #aaa}.pvtAxisContainer li span.pvtAttr{-webkit-text-size-adjust:100%;background:#F3F3F3;border:1px solid #DEDEDE;padding:2px 5px;white-space:nowrap;-webkit-border-radius:5px;-moz-border-radius:5px;border-radius:5px}.pvtTriangle{cursor:pointer;color:grey}.pvtHorizList li{display:inline}.pvtVertList{vertical-align:top}.pvtFilteredAttribute{font-style:italic}.pvtFilterBox{z-index:100;width:300px;border:1px solid gray;background-color:#fff;position:absolute;text-align:center}.pvtFilterBox h4{margin:15px}.pvtFilterBox p{margin:10px auto}.pvtFilterBox label{font-weight:400}.pvtFilterBox input[type=checkbox]{margin-right:10px;margin-left:10px}.pvtFilterBox input[type=text]{width:230px}.pvtFilterBox .count{color:gray;font-weight:400;margin-left:3px}.pvtCheckContainer{text-align:left;font-size:14px;white-space:nowrap;overflow-y:scroll;width:100%;max-height:250px;border-top:1px solid #d3d3d3;border-bottom:1px solid #d3d3d3}.pvtCheckContainer p{margin:5px}.pvtRendererArea{padding:5px}'+
-          '</style>' +
-          '</head>'+
-          '<body link="blue" vlink="purple">{table}</body></html>';
-      var base64 = function(s){
-        return window.btoa(unescape(encodeURIComponent(s)));
-      }
-      var format = function(s,c){
-        return s.replace(/{(\w+)}/g, function(m, p) {return c[p]; });
-      }
-      var getBlob = function(base64){
-        return b64toBlob(getData(base64), getContentType(base64));
-      }
-      var getContentType = function(base64){
-        return /data:([^;]*);/i.exec(base64)[1];
-      }
-      var getData = function (base64) {
-        return base64.substr(base64.indexOf("base64,") + 7, base64.length);
-      }
-      var b64toBlob = function (b64Data, contentType, sliceSize) {
-        contentType = contentType || '';
-        sliceSize = sliceSize || 512;
-
-        var byteCharacters = atob(b64Data);
-        var byteArrays = [];
-
-        for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-          var slice = byteCharacters.slice(offset, offset + sliceSize);
-
-          var byteNumbers = new Array(slice.length);
-          for (var i = 0; i < slice.length; i++) {
-            byteNumbers[i] = slice.charCodeAt(i);
-          }
-
-          var byteArray = new Uint8Array(byteNumbers);
-
-          byteArrays.push(byteArray);
+      $.ajax({
+        url: 'http://101.200.124.206:7007/PoiService/excel/html2Excel',
+        type: 'POST',
+        crossDomain:true,
+        data:{htmlCode:$this.html(),sheetName:sheet_name},
+        dataType: "json",
+        success: function (r) {
+          var hrefvalue = "data:application/vnd.ms-excel;base64," + r.data;
+          var $btn = $("<a name='pivotBtnDownLoad' style='display:none;'>下载</a>");
+          $btn.attr('download',file_name);
+          $btn.attr('href',hrefvalue);
+          $btn[0].click();
+        },
+        error: function(xhr,status,error){
+          alert(status);
         }
+      });
 
-        var blob = new Blob(byteArrays, { type: contentType });
-        return blob;
-      }
-
-      var ctx = {worksheet: sheet_name , table: $this.html()}
-
-      var $btn = $("<a name='pivotBtnDownLoad' style='display:none;'>下载</a>");
-      $btn.attr('download',file_name);
-
-      var blob = getBlob(uri + base64(format(template, ctx)))
-      $btn.attr('href',URL.createObjectURL(blob));
-      $btn.appendTo($this);
-      $btn[0].click();
-      $btn.remove();
     }
+
+    //$.fn.pivotTable2Excel = function(file_name,sheet_name){
+    //  var $this = this;
+    //  var uri = "data:application/vnd.ms-excel;base64,"
+    //  var template = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" ' +
+    //      'xmlns="http://www.w3.org/TR/REC-html40"> ' +
+    //      '<head>' +
+    //      '<!--[if gte mso 9]>' +
+    //      '<xml>' +
+    //      '<x:ExcelWorkbook>'+
+    //      '<x:ExcelWorksheets>' +
+    //      '<x:ExcelWorksheet>' +
+    //      '<x:Name>{worksheet}</x:Name>' +
+    //      '<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'+
+    //      '</x:ExcelWorksheet>'+
+    //      '</x:ExcelWorksheets>' +
+    //      '</x:ExcelWorkbook>'+
+    //      '</xml><![endif]-->'+
+    //      '<style type="text/css">' +
+    //      '.pvtUi{color:#333}table.pvtTable{font-size:8pt;text-align:left;border-collapse:collapse}table.pvtTable tbody tr th,table.pvtTable thead tr th{background-color:#e6EEEE;border:1px solid #CDCDCD;font-size:8pt;padding:5px}table.pvtTable .pvtColLabel{text-align:center}table.pvtTable .pvtTotalLabel{text-align:right}table.pvtTable tbody tr td{color:#3D3D3D;padding:5px;background-color:#FFF;border:1px solid #CDCDCD;vertical-align:top;text-align:right}.pvtGrandTotal,.pvtTotal{font-weight:700}.pvtVals{text-align:center;white-space:nowrap}.pvtColOrder,.pvtRowOrder{cursor:pointer;width:15px;margin-left:5px;display:inline-block}.pvtAggregator{margin-bottom:5px}.pvtAxisContainer,.pvtVals{border:1px solid gray;background:#EEE;padding:5px;min-width:20px;min-height:20px;user-select:none;-webkit-user-select:none;-moz-user-select:none;-khtml-user-select:none;-ms-user-select:none}.pvtAxisContainer li{padding:8px 6px;list-style-type:none;cursor:move}.pvtAxisContainer li.pvtPlaceholder{-webkit-border-radius:5px;padding:3px 15px;-moz-border-radius:5px;border-radius:5px;border:1px dashed #aaa}.pvtAxisContainer li span.pvtAttr{-webkit-text-size-adjust:100%;background:#F3F3F3;border:1px solid #DEDEDE;padding:2px 5px;white-space:nowrap;-webkit-border-radius:5px;-moz-border-radius:5px;border-radius:5px}.pvtTriangle{cursor:pointer;color:grey}.pvtHorizList li{display:inline}.pvtVertList{vertical-align:top}.pvtFilteredAttribute{font-style:italic}.pvtFilterBox{z-index:100;width:300px;border:1px solid gray;background-color:#fff;position:absolute;text-align:center}.pvtFilterBox h4{margin:15px}.pvtFilterBox p{margin:10px auto}.pvtFilterBox label{font-weight:400}.pvtFilterBox input[type=checkbox]{margin-right:10px;margin-left:10px}.pvtFilterBox input[type=text]{width:230px}.pvtFilterBox .count{color:gray;font-weight:400;margin-left:3px}.pvtCheckContainer{text-align:left;font-size:14px;white-space:nowrap;overflow-y:scroll;width:100%;max-height:250px;border-top:1px solid #d3d3d3;border-bottom:1px solid #d3d3d3}.pvtCheckContainer p{margin:5px}.pvtRendererArea{padding:5px}'+
+    //      '</style>' +
+    //      '</head>'+
+    //      '<body link="blue" vlink="purple">{table}</body></html>';
+    //  var base64 = function(s){
+    //    return window.btoa(unescape(encodeURIComponent(s)));
+    //  }
+    //  var format = function(s,c){
+    //    return s.replace(/{(\w+)}/g, function(m, p) {return c[p]; });
+    //  }
+    //  var getBlob = function(base64){
+    //    return b64toBlob(getData(base64), getContentType(base64));
+    //  }
+    //  var getContentType = function(base64){
+    //    return /data:([^;]*);/i.exec(base64)[1];
+    //  }
+    //  var getData = function (base64) {
+    //    return base64.substr(base64.indexOf("base64,") + 7, base64.length);
+    //  }
+    //  var b64toBlob = function (b64Data, contentType, sliceSize) {
+    //    contentType = contentType || '';
+    //    sliceSize = sliceSize || 512;
+    //
+    //    var byteCharacters = atob(b64Data);
+    //    var byteArrays = [];
+    //
+    //    for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+    //      var slice = byteCharacters.slice(offset, offset + sliceSize);
+    //
+    //      var byteNumbers = new Array(slice.length);
+    //      for (var i = 0; i < slice.length; i++) {
+    //        byteNumbers[i] = slice.charCodeAt(i);
+    //      }
+    //
+    //      var byteArray = new Uint8Array(byteNumbers);
+    //
+    //      byteArrays.push(byteArray);
+    //    }
+    //
+    //    var blob = new Blob(byteArrays, { type: contentType });
+    //    return blob;
+    //  }
+    //
+    //  var ctx = {worksheet: sheet_name , table: $this.html()}
+    //
+    //  var $btn = $("<a name='pivotBtnDownLoad' style='display:none;'>下载</a>");
+    //  $btn.attr('download',file_name);
+    //
+    //  var blob = getBlob(uri + base64(format(template, ctx)))
+    //  $btn.attr('href',URL.createObjectURL(blob));
+    //  $btn.appendTo($this);
+    //  $btn[0].click();
+    //  $btn.remove();
+    //}
 
     /*
     Barchart post-processing

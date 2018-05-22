@@ -19,7 +19,7 @@ function initPivot(){
 					//{year:"2014",month: "1月", art: "借或贷",  value: "贷"},
 					{year:"2014",month: "2月", art: "借或贷",  value: "贷"},
 
-					{year:"2014",month: "1月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"工资薪金", value: 1},
+					{year:"2014",month: "1月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"工资薪金", value: "1%"},
 					{year:"2014",month: "1月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"五险一金", value: 2},
 					{year:"2014",month: "1月", art: "费用明细", type:1, mixtype:"外聘研发人员的劳务费", value: 3},
 					{year:"2014",month: "1月", art: "费用明细", type:2, mixtype:"研发活动直接消耗", mixtype2:"材料", value: 4},
@@ -35,7 +35,7 @@ function initPivot(){
 					{year:"2014",month: "1月", art: "费用明细", type:4, mixtype:"用于研发活动的软件的摊销费用", value: 14},
 					{year:"2014",month: "1月", art: "费用明细", type:4, mixtype:"用于研发活动的专利权的摊销费用", value: 15},
 
-					{year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"工资薪金", value: 16},
+					{year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"工资薪金", value: "16%"},
 					{year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"五险一金", value: 17},
 					{year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"外聘研发人员的劳务费", value: 18},
 					{year:"2014",month: "2月", art: "费用明细", type:2, mixtype:"研发活动直接消耗", mixtype2:"材料", value: 19},
@@ -51,7 +51,7 @@ function initPivot(){
 					{year:"2014",month: "2月", art: "费用明细", type:4, mixtype:"用于研发活动的软件的摊销费用", value: 29},
 					{year:"2014",month: "2月", art: "费用明细", type:4, mixtype:"用于研发活动的专利权的摊销费用", value: 30},
 
-					{year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"工资薪金", value: 10},
+					{year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"工资薪金", value: "17%"},
 					{year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"直接从事研发活动人员", mixtype2:"五险一金", value: 10},
 					{year:"2014",month: "2月", art: "费用明细", type:1, mixtype:"外聘研发人员的劳务费", value: 10},
 
@@ -106,9 +106,11 @@ function initPivot(){
 	                rendererOptions:{table:{
 	                	                     renderCell:function(){//自定义的渲染方法 filter筛选单元格，method是渲染方法
 	                	                    	return [{
-														filter:{"2014年度":"费用明细",
-																"大类":"二、直接投入费用",
-																"小类":"用于中间试验和产品试制的模具、工艺装备开发及制造费"},
+														filter:{//"年份":"2014","月份":"2月",
+																"2014年度":"费用明细",
+																"大类":"一、人员人工费用",
+																"小类":"直接从事研发活动人员",
+																"细项":"工资薪金"},
 														method:function(src, records, value, filters, rows, pivotData){
 															var my_value = rows[6].value * rows[7].value;
 															pivotData.setColValue(src, my_value);
@@ -146,7 +148,11 @@ function initPivot(){
 	                	}	                	
 	                },
 					fixedRowHeader: true,
-					fixedColHeader: true
+					fixedColHeader: true,
+					//fnDrawCallback: function(pivotData){
+					//	var totalColRow = pivotData.totalColRow;
+					//	totalColRow[11].textContent = pivotData.getColValue(totalColRow[6])  * pivotData.getColValue(totalColRow[7]);
+					//}
 	            },"zh"
 	        );
 };
